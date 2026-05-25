@@ -8,3 +8,5 @@ dist
 *.db-*
 .netlify
 .vercel
+user-context.json
+mastra.duckdb*
