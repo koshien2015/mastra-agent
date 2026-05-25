@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { fetchHatenaArticlesTool } from '../tools/fetch-hatena-articles';
 import { saveUserContextTool, getUserContextTool } from '../tools/user-context';
+import { defaultModel } from '../models';
 
 export const articleRecommendAgent = new Agent({
   id: 'article-recommend-agent',
@@ -48,7 +49,7 @@ export const articleRecommendAgent = new Agent({
 
 関連する記事が0件の場合は「今回のホットエントリにはあなたの現在の仕事と直接重なるものはありませんでした」と伝えてください。`,
 
-  model: 'openai/gpt-5.1',
+  model: defaultModel,
   tools: { fetchHatenaArticlesTool, saveUserContextTool, getUserContextTool },
   memory: new Memory(),
 });

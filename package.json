@@ -14,7 +14,9 @@
   "license": "ISC",
   "type": "module",
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "engines": {
     "node": ">=22.13.0"
@@ -27,6 +29,8 @@
     "@mastra/loggers": "1.1.1",
     "@mastra/memory": "1.18.2",
     "@mastra/observability": "1.12.0",
+    "mysql2": "^3.22.3",
+    "ollama-ai-provider": "^1.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
