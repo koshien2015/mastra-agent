@@ -7,16 +7,18 @@ import { MastraCompositeStore } from '@mastra/core/storage';
 import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
 import { weatherWorkflow } from './workflows/weather-workflow';
 import { weeklyNewsWorkflow } from './workflows/weekly-news-workflow';
+import { articleRecommendWorkflow } from './workflows/article-recommend-workflow';
 import { weatherAgent } from './agents/weather-agent';
 import { articleRecommendAgent } from './agents/article-recommend-agent';
+import { contextExtractorAgent } from './agents/context-extractor-agent';
 import { playerAnalystAgent } from './agents/player-analyst-agent';
 import { gameSummaryAgent } from './agents/game-summary-agent';
 import { sportsNewsAgent } from './agents/sports-news-agent';
 import { toolCallAppropriatenessScorer, completenessScorer, translationScorer } from './scorers/weather-scorer';
 
 export const mastra = new Mastra({
-  workflows: { weatherWorkflow, weeklyNewsWorkflow },
-  agents: { weatherAgent, articleRecommendAgent, playerAnalystAgent, gameSummaryAgent, sportsNewsAgent },
+  workflows: { weatherWorkflow, weeklyNewsWorkflow, articleRecommendWorkflow },
+  agents: { weatherAgent, articleRecommendAgent, contextExtractorAgent, playerAnalystAgent, gameSummaryAgent, sportsNewsAgent },
   scorers: { toolCallAppropriatenessScorer, completenessScorer, translationScorer },
   storage: new MastraCompositeStore({
     id: 'composite-storage',
