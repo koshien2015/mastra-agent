@@ -11,6 +11,85 @@ import { userContextSchema } from '../tools/user-context';
 
 const CONTEXTS_DIR = join(process.cwd(), '.data', 'contexts');
 
+function escapeGhValue(value: string): string {
+  return value.replace(/"/g, '\\"');
+}
+
+function ghApi<T>(path: string, fallback: T, options?: { accept?: string }): T {
+  const escapedPath = escapeGhValue(path);
+  const acceptHeader = options?.accept
+    ? ` -H "Accept: ${escapeGhValue(options.accept)}"`
+    : '';
+
+  try {
+    const stdout = execSync(`gh api "${escapedPath}"${acceptHeader}`, {
+      stdio: 'pipe',
+      encoding: 'utf-8',
+    });
+    return JSON.parse(stdout) as T;
+  } catch (error: any) {
+    const stderr = error?.stderr?.toString?.() ?? '';
+    const stdout = error?.stdout?.toString?.() ?? '';
+    const message = `${stderr}\n${stdout}`.trim();
+
+    if (message.includes('401') || message.includes('Requires authentication')) {
+      throw new Error(
+        'gh authentication failed. Run `gh auth login` or refresh the current token before running this workflow.'
+      );
+    }
+
+    return fallback;
+  }
+}
+
+function extractRepoName(url: string): string {
+  return url.replace('https://api.github.com/repos/', '');
+}
+
+type GitHubProfile = {
+  name: string | null;
+  bio: string | null;
+  company: string | null;
+  location: string | null;
+};
+
+type GitHubRepo = {
+  name: string;
+  description: string | null;
+  language: string | null;
+};
+
+type GitHubEvent = {
+  type: string;
+  repo: { name: string };
+  payload?: { commits?: { message: string }[] };
+};
+
+type SearchItem = {
+  title: string;
+  body: string | null;
+  labels?: { name: string }[];
+  repository_url?: string;
+};
+
+type SearchResult = {
+  total_count: number;
+  items: SearchItem[];
+};
+
+type CommitSearchItem = {
+  commit: {
+    message: string;
+    author: { date: string };
+  };
+  repository: { full_name: string };
+};
+
+type CommitSearchResult = {
+  total_count: number;
+  items: CommitSearchItem[];
+};
+
 // ---- スキーマ ----
 
 const userEntrySchema = z.object({
@@ -68,74 +147,181 @@ const collectContextStep = createStep({
   execute: async ({ inputData, mastra }) => {
     const { username, org } = inputData;
 
-    // ユーザー公開プロフィール取得
-    let userJson: any = {};
-    try {
-      userJson = JSON.parse(
-        execSync(`gh api /users/${username}`, { stdio: 'pipe' }).toString()
-      );
-    } catch {
-      userJson = { login: username, name: username };
+    const profile = ghApi<GitHubProfile>(`/users/${username}`, {
+      name: username,
+      bio: null,
+      company: null,
+      location: null,
+    });
+
+    const repos = ghApi<GitHubRepo[]>(
+      `/users/${username}/repos?sort=pushed&per_page=20`,
+      []
+    );
+
+    const events = ghApi<GitHubEvent[]>(
+      `/users/${username}/events?per_page=30`,
+      []
+    );
+
+    const langCount: Record<string, number> = {};
+    for (const repo of repos) {
+      if (repo.language) {
+        langCount[repo.language] = (langCount[repo.language] ?? 0) + 1;
+      }
     }
 
-    // 最近のPR（org指定があればorg内を優先）
-    let prs: any[] = [];
-    try {
-      const orgFlag = org ? `--owner ${org}` : '';
-      prs = JSON.parse(
-        execSync(
-          `gh search prs --author ${username} ${orgFlag} --state all --limit 20 --json title,body,createdAt,repository`.trim(),
-          { stdio: 'pipe' }
-        ).toString()
-      );
-    } catch {
-      // gh search が使えない環境ではスキップ
-    }
+    const topLanguages = Object.entries(langCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([language]) => language);
 
-    // 最近のイベント（コミットメッセージ）
-    let events: any[] = [];
-    try {
-      events = JSON.parse(
-        execSync(`gh api /users/${username}/events?per_page=50`, { stdio: 'pipe' }).toString()
+    const recentRepos = [
+      ...new Set(
+        events
+          .filter(event => event.type === 'PushEvent')
+          .map(event => event.repo.name.replace(`${username}/`, ''))
+      ),
+    ].slice(0, 5);
+
+    const commitMessages = events
+      .filter(event => event.type === 'PushEvent' && event.payload?.commits)
+      .flatMap(event =>
+        (event.payload?.commits ?? []).map(commit => commit.message.split('\n')[0])
+      )
+      .slice(0, 10);
+
+    const repoSummaries = repos.slice(0, 8).map(repo => ({
+      name: repo.name,
+      description: repo.description,
+      language: repo.language,
+    }));
+
+    let orgPRs: { title: string; body: string | null; repo: string; labels: string[] }[] = [];
+    let orgIssues: { title: string; body: string | null; repo: string; labels: string[] }[] = [];
+    let orgCommitMessages: string[] = [];
+    let orgRepoNames: string[] = [];
+
+    if (org) {
+      const prSearch = ghApi<SearchResult>(
+        `/search/issues?q=author:${username}+org:${org}+is:pr&sort=updated&per_page=15`,
+        { total_count: 0, items: [] }
       );
-    } catch {
-      // スキップ
+      orgPRs = prSearch.items.map(item => ({
+        title: item.title,
+        body: item.body ? item.body.slice(0, 400) : null,
+        repo: item.repository_url ? extractRepoName(item.repository_url) : '',
+        labels: (item.labels ?? []).map(label => label.name),
+      }));
+
+      const issueSearch = ghApi<SearchResult>(
+        `/search/issues?q=author:${username}+org:${org}+is:issue&sort=updated&per_page=10`,
+        { total_count: 0, items: [] }
+      );
+      orgIssues = issueSearch.items.map(item => ({
+        title: item.title,
+        body: item.body ? item.body.slice(0, 200) : null,
+        repo: item.repository_url ? extractRepoName(item.repository_url) : '',
+        labels: (item.labels ?? []).map(label => label.name),
+      }));
+
+      const commitSearch = ghApi<CommitSearchResult>(
+        `/search/commits?q=author:${username}+org:${org}&sort=author-date&per_page=15`,
+        { total_count: 0, items: [] },
+        { accept: 'application/vnd.github.cloak-preview+json' }
+      );
+      orgCommitMessages = commitSearch.items.map(
+        item => `[${item.repository.full_name}] ${item.commit.message.split('\n')[0]}`
+      );
+
+      const orgRepos = ghApi<{ name: string }[]>(
+        `/orgs/${org}/repos?sort=pushed&per_page=30&type=all`,
+        []
+      );
+      orgRepoNames = orgRepos.map(repo => repo.name);
+
+      const orgReposFull = ghApi<{ language: string | null }[]>(
+        `/orgs/${org}/repos?sort=pushed&per_page=15&type=all`,
+        []
+      );
+      for (const repo of orgReposFull) {
+        if (repo.language) {
+          langCount[repo.language] = (langCount[repo.language] ?? 0) + 1;
+        }
+      }
     }
 
     // ---- モデルが読みやすいテキスト形式に変換 ----
 
     const profileLines = [
-      `名前: ${userJson.name ?? username}`,
-      userJson.company ? `所属: ${userJson.company}` : '',
-      userJson.bio ? `自己紹介: ${userJson.bio}` : '',
+      `名前: ${profile.name ?? username}`,
+      profile.company ? `所属: ${profile.company}` : '',
+      profile.location ? `所在地: ${profile.location}` : '',
+      profile.bio ? `自己紹介: ${profile.bio}` : '',
     ].filter(Boolean).join('\n');
 
-    const prLines = prs.slice(0, 12).map((pr, i) => {
-      const body = (pr.body ?? '').trim().slice(0, 600);
-      const bodyText = body ? `\n    概要: ${body.replace(/\n+/g, ' ')}` : '';
-      return `[${i + 1}] リポジトリ: ${pr.repository?.name ?? '不明'}\n    タイトル: ${pr.title}${bodyText}`;
-    }).join('\n\n');
-
-    const commitLines = events
-      .filter((e: any) => e.type === 'PushEvent')
-      .slice(0, 15)
-      .flatMap((e: any) =>
-        (e.payload?.commits ?? []).slice(0, 3).map((c: any) =>
-          `- [${e.repo?.name ?? ''}] ${c.message.split('\n')[0]}`
-        )
+    const repoLines = repoSummaries
+      .map(
+        repo =>
+          `- ${repo.name}: ${repo.description ?? '説明なし'} (${repo.language ?? '不明'})`
       )
       .join('\n');
+
+    const commitLines = commitMessages.map(message => `- ${message}`).join('\n');
+
+    const orgPrLines = orgPRs
+      .map(pr => {
+        const labels = pr.labels.length > 0 ? ` (${pr.labels.join(', ')})` : '';
+        const body = pr.body ? `\n    説明: ${pr.body.replace(/\n+/g, ' ')}` : '';
+        return `- [${pr.repo}] ${pr.title}${labels}${body}`;
+      })
+      .join('\n');
+
+    const orgIssueLines = orgIssues
+      .map(issue => {
+        const labels = issue.labels.length > 0 ? ` (${issue.labels.join(', ')})` : '';
+        const body = issue.body ? `\n    内容: ${issue.body.replace(/\n+/g, ' ')}` : '';
+        return `- [${issue.repo}] ${issue.title}${labels}${body}`;
+      })
+      .join('\n');
+
+    const orgCommitLines = orgCommitMessages.map(message => `- ${message}`).join('\n');
 
     const inputText = [
       '## ユーザー情報',
       profileLines,
       '',
-      '## 最近のPR（直近最大12件）',
-      prLines || '（取得できませんでした）',
+      '## 主要言語',
+      topLanguages.join(', ') || '（取得できませんでした）',
       '',
-      '## 最近のコミット',
+      '## 最近アクティブなリポジトリ',
+      recentRepos.join(', ') || '（取得できませんでした）',
+      '',
+      '## 個人リポジトリ一覧（最近）',
+      repoLines || '（取得できませんでした）',
+      '',
+      '## 公開コミットメッセージ（サンプル）',
       commitLines || '（取得できませんでした）',
-    ].join('\n');
+    ];
+
+    if (org) {
+      inputText.push(
+        '',
+        `## 組織「${org}」での活動`,
+        '',
+        `### 最近のPull Request（${orgPRs.length}件）`,
+        orgPrLines || 'なし',
+        '',
+        `### 最近のIssue（${orgIssues.length}件）`,
+        orgIssueLines || 'なし',
+        '',
+        '### 組織内コミットメッセージ（サンプル）',
+        orgCommitLines || 'なし',
+        '',
+        '### 組織のリポジトリ（最近アクティブ）',
+        orgRepoNames.slice(0, 10).join(', ') || 'なし'
+      );
+    }
 
     const agent = mastra?.getAgent('contextExtractorAgent');
     if (!agent) throw new Error('contextExtractorAgent not found');
@@ -155,14 +341,17 @@ const collectContextStep = createStep({
 
     const extracted = JSON.parse(jsonMatch[0]);
     const context = userContextSchema.parse({
-      name: extracted.name || userJson.name || username,
+      name: extracted.name || profile.name || username,
       role: extracted.role || '不明',
       currentTasks: extracted.currentTasks?.length ? extracted.currentTasks : ['GitHub情報から取得中'],
       currentProblems: extracted.currentProblems ?? [],
-      techStack: extracted.techStack ?? [],
+      techStack: extracted.techStack?.length ? extracted.techStack : topLanguages,
       consideringTech: extracted.consideringTech ?? [],
       interests: extracted.interests ?? [],
-      recentLearnings: extracted.recentLearnings ?? [],
+      recentLearnings:
+        extracted.recentLearnings?.length
+          ? extracted.recentLearnings
+          : recentRepos.slice(0, 3),
       updatedAt: new Date().toISOString(),
     });
 
