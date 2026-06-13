@@ -15,6 +15,8 @@ function getTempDir(startDate: string): string {
 const gameSchema = z.object({
   game_id: z.string(),
   game_date: z.string(),
+  league_id: z.string(),
+  league_name: z.string(),
   first_team_name: z.string(),
   last_team_name: z.string(),
   first_run: z.number().nullable(),
@@ -25,11 +27,21 @@ const gameSchema = z.object({
 const gameSummarySchema = z.object({
   game_id: z.string(),
   game_date: z.string(),
+  league_id: z.string(),
+  league_name: z.string(),
   first_team_name: z.string(),
   last_team_name: z.string(),
   score: z.string(),
   summary: z.string(),
   tempDir: z.string(),
+});
+
+const leagueArticleSchema = z.object({
+  leagueId: z.string(),
+  leagueName: z.string(),
+  gameCount: z.number(),
+  article: z.string(),
+  filePath: z.string(),
 });
 
 // ---- Step 1: 試合一覧を取得 ----
@@ -63,6 +75,8 @@ const fetchGamesStep = createStep({
       .map(g => ({
         game_id: String(g.game_id),
         game_date: String(g.game_date ?? ''),
+        league_id: String(g.league_id ?? 'unknown'),
+        league_name: String(g.name ?? `league-${g.league_id ?? 'unknown'}`),
         first_team_name: g.first_team_name ?? '',
         last_team_name: g.last_team_name ?? '',
         first_run: g.first_run ?? null,
@@ -80,7 +94,7 @@ const summarizeGameStep = createStep({
   inputSchema: gameSchema,
   outputSchema: gameSummarySchema,
   execute: async ({ inputData, mastra }) => {
-    const { game_id, game_date, first_team_name, last_team_name,
+    const { game_id, game_date, league_id, league_name, first_team_name, last_team_name,
             first_run, last_run, tempDir } = inputData;
     const summaryPath = path.join(tempDir, 'summaries', `game_${game_id}.json`);
 
@@ -99,7 +113,7 @@ const summarizeGameStep = createStep({
     );
     if (!memoRes.ok || memoRes.status === 404) {
       const fallback: z.infer<typeof gameSummarySchema> = {
-        game_id, game_date, first_team_name, last_team_name,
+        game_id, game_date, league_id, league_name, first_team_name, last_team_name,
         score, summary: '（試合データなし）', tempDir,
       };
       await fs.writeFile(summaryPath, JSON.stringify(fallback, null, 2));
@@ -109,7 +123,7 @@ const summarizeGameStep = createStep({
     const { memo } = await memoRes.json();
     if (!memo) {
       const fallback: z.infer<typeof gameSummarySchema> = {
-        game_id, game_date, first_team_name, last_team_name,
+        game_id, game_date, league_id, league_name, first_team_name, last_team_name,
         score, summary: '（試合データなし）', tempDir,
       };
       await fs.writeFile(summaryPath, JSON.stringify(fallback, null, 2));
@@ -122,7 +136,7 @@ const summarizeGameStep = createStep({
     const response = await agent.generate([{ role: 'user', content: memo }]);
 
     const result: z.infer<typeof gameSummarySchema> = {
-      game_id, game_date, first_team_name, last_team_name,
+      game_id, game_date, league_id, league_name, first_team_name, last_team_name,
       score, summary: response.text, tempDir,
     };
 
@@ -140,30 +154,71 @@ const generateNewsStep = createStep({
   outputSchema: z.object({
     article: z.string(),
     filePath: z.string(),
+    leagueArticles: z.array(leagueArticleSchema),
   }),
   execute: async ({ inputData, mastra }) => {
     const summaries = inputData.filter(s => s.summary !== '（試合データなし）');
     if (summaries.length === 0) {
-      return { article: '対象試合なし', filePath: '' };
+      return { article: '対象試合なし', filePath: '', leagueArticles: [] };
     }
 
     const tempDir = summaries[0].tempDir;
+    const newsDir = path.join(tempDir, 'news-by-league');
     const newsPath = path.join(tempDir, 'news.md');
+    await fs.mkdir(newsDir, { recursive: true });
 
     const agent = mastra?.getAgent('sportsNewsAgent');
     if (!agent) throw new Error('sportsNewsAgent not found');
 
-    const summaryText = summaries
-      .map(s =>
-        `## ${s.game_date}  ${s.first_team_name} ${s.score} ${s.last_team_name}\n\n${s.summary}`
+    const groups = new Map<string, z.infer<typeof gameSummarySchema>[]>();
+    for (const summary of summaries) {
+      const group = groups.get(summary.league_id);
+      if (group) {
+        group.push(summary);
+      } else {
+        groups.set(summary.league_id, [summary]);
+      }
+    }
+
+    const leagueArticles: z.infer<typeof leagueArticleSchema>[] = [];
+
+    for (const [leagueId, leagueSummaries] of groups.entries()) {
+      const leagueName = leagueSummaries[0]?.league_name ?? `league-${leagueId}`;
+      const summaryText = leagueSummaries
+        .map(s =>
+          `## ${s.game_date}  ${s.first_team_name} ${s.score} ${s.last_team_name}\n\n${s.summary}`
+        )
+        .join('\n\n---\n\n');
+
+      const response = await agent.generate([
+        {
+          role: 'user',
+          content: `対象リーグ: ${leagueName} (league_id: ${leagueId})\n対象試合数: ${leagueSummaries.length}\n\n以下の試合要約をもとに、このリーグだけの週刊スポーツニュース記事を書いてください。\n\n${summaryText}`,
+        },
+      ]);
+
+      const leagueFilePath = path.join(newsDir, `league_${leagueId}.md`);
+      await fs.writeFile(leagueFilePath, response.text);
+
+      leagueArticles.push({
+        leagueId,
+        leagueName,
+        gameCount: leagueSummaries.length,
+        article: response.text,
+        filePath: leagueFilePath,
+      });
+    }
+
+    const combinedArticle = leagueArticles
+      .map(
+        league =>
+          `# ${league.leagueName} の週刊ニュース\n\n${league.article}`
       )
       .join('\n\n---\n\n');
 
-    const response = await agent.generate([{ role: 'user', content: summaryText }]);
+    await fs.writeFile(newsPath, combinedArticle);
 
-    await fs.writeFile(newsPath, response.text);
-
-    return { article: response.text, filePath: newsPath };
+    return { article: combinedArticle, filePath: newsPath, leagueArticles };
   },
 });
 
@@ -178,6 +233,7 @@ export const weeklyNewsWorkflow = createWorkflow({
   outputSchema: z.object({
     article: z.string(),
     filePath: z.string(),
+    leagueArticles: z.array(leagueArticleSchema),
   }),
 })
   .then(fetchGamesStep)
