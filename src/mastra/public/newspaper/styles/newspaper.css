@@ -89,7 +89,6 @@ body {
 
 /* 写真＋リードの横並びレイアウト */
 .top-story-body {
-  writing-mode: horizontal-tb;
   display: flex;
   gap: 4mm;
   align-items: flex-start;

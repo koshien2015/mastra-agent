@@ -87,11 +87,10 @@ export async function renderNewspaper(
       '<link rel="stylesheet" href="styles/newspaper.css">',
       `<style>\n${css}\n</style>`
     )
-    .replaceAll('{{PAPER_NAME}}', 'CAP BASEBALL WEEKLY')
+    .replaceAll('{{PAPER_NAME}}', headline)
     .replaceAll('{{PUBLISH_DATE}}', data.publishDate)
     .replaceAll('{{LEAGUE_NAME}}', data.leagueName)
     .replaceAll('{{GAME_COUNT}}', String(data.gameCount))
-    .replace('{{HEADLINE}}', headline)
     .replace('{{PHOTO_CAPTION}}', '')
     .replace('{{LEAD}}', markdownToHtml(lead))
     .replace('{{HIGHLIGHTS}}', markdownToHtml(sections['今週のハイライト'] ?? ''))
