@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- マストヘッド -->
+  <!-- マストヘッド（横書き） -->
   <header class="masthead">
     <div class="paper-name">{{PAPER_NAME}}</div>
     <div class="paper-meta">
@@ -17,6 +17,9 @@
       <span>今週の試合数：{{GAME_COUNT}} 試合</span>
     </div>
   </header>
+
+  <!-- 縦組みコンテンツ -->
+  <div class="content">
 
   <!-- トップ記事 -->
   <section class="top-story">
@@ -61,7 +64,9 @@
     {{SUMMARY}}
   </section>
 
-  <!-- フッター（全ページ共通） -->
+  </div><!-- /.content -->
+
+  <!-- フッター（横書き） -->
   <footer class="newspaper-footer">
     {{PAPER_NAME}} — {{PUBLISH_DATE}} 発行 — {{LEAGUE_NAME}}
   </footer>

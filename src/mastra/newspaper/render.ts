@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 
-const TEMPLATES_DIR = path.join(process.cwd(), 'src', 'mastra', 'newspaper', 'templates')
+const TEMPLATES_DIR = path.join(process.cwd(), 'newspaper', 'templates')
 
 export interface ArticleData {
   leagueName: string
