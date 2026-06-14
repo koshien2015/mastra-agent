@@ -2,12 +2,15 @@ import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
+import { fileURLToPath } from 'url';
+
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 const SCORESHEET_URL = process.env.SCORESHEET_API_URL ?? 'http://localhost:3333';
 
-function getTempDir(startDate: string): string {
-  return path.join(os.tmpdir(), 'cap-weekly-news', startDate);
+function getTempDir(startDate: string, outputDir?: string): string {
+  const base = outputDir ?? path.join(PROJECT_ROOT, 'generated', 'newspaper');
+  return path.join(base, startDate);
 }
 
 // ---- スキーマ ----
@@ -52,11 +55,12 @@ const fetchGamesStep = createStep({
   inputSchema: z.object({
     startDate: z.string().describe('開始日 (YYYY-MM-DD)'),
     endDate: z.string().describe('終了日 (YYYY-MM-DD)'),
+    outputDir: z.string().optional().describe('出力先ディレクトリ（省略時は /tmp）'),
   }),
   outputSchema: z.array(gameSchema),
   execute: async ({ inputData }) => {
-    const { startDate, endDate } = inputData;
-    const tempDir = getTempDir(startDate);
+    const { startDate, endDate, outputDir } = inputData;
+    const tempDir = getTempDir(startDate, outputDir);
     await fs.mkdir(path.join(tempDir, 'summaries'), { recursive: true });
 
     const res = await fetch(
@@ -229,6 +233,7 @@ export const weeklyNewsWorkflow = createWorkflow({
   inputSchema: z.object({
     startDate: z.string().describe('週の開始日 (YYYY-MM-DD)'),
     endDate: z.string().describe('週の終了日 (YYYY-MM-DD)'),
+    outputDir: z.string().optional().describe('出力先ディレクトリ（省略時は /tmp）'),
   }),
   outputSchema: z.object({
     article: z.string(),

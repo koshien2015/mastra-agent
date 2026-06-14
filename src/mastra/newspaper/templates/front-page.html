@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{PAPER_NAME}}</title>
+  <link rel="stylesheet" href="styles/newspaper.css">
+</head>
+<body>
+
+  <!-- マストヘッド -->
+  <header class="masthead">
+    <div class="paper-name">{{PAPER_NAME}}</div>
+    <div class="paper-meta">
+      <span>{{PUBLISH_DATE}} 発行</span>
+      <span class="league-tag">{{LEAGUE_NAME}}</span>
+      <span>今週の試合数：{{GAME_COUNT}} 試合</span>
+    </div>
+  </header>
+
+  <!-- トップ記事 -->
+  <section class="top-story">
+    <h1 class="headline-1">{{HEADLINE}}</h1>
+    <div class="lead">
+      {{LEAD}}
+    </div>
+  </section>
+
+  <hr class="rule-thick">
+
+  <!-- ハイライト ＋ キープレーヤー（2段組） -->
+  <div class="columns-2">
+
+    <section class="highlights">
+      <h2 class="section-title">今週のハイライト</h2>
+      {{HIGHLIGHTS}}
+    </section>
+
+    <section>
+      <h2 class="section-title">今週のキープレーヤー</h2>
+      <div class="key-players-box">
+        {{KEY_PLAYERS}}
+      </div>
+    </section>
+
+  </div>
+
+  <hr class="rule-thin">
+
+  <!-- その他の注目試合（3段組） -->
+  <section>
+    <h2 class="section-title">その他の注目試合</h2>
+    <div class="other-news-grid">
+      {{OTHER_NEWS}}
+    </div>
+  </section>
+
+  <!-- 総括 -->
+  <section class="summary">
+    <h2 class="section-title">総括</h2>
+    {{SUMMARY}}
+  </section>
+
+  <!-- フッター（全ページ共通） -->
+  <footer class="newspaper-footer">
+    {{PAPER_NAME}} — {{PUBLISH_DATE}} 発行 — {{LEAGUE_NAME}}
+  </footer>
+
+</body>
+</html>

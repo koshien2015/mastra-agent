@@ -11,3 +11,4 @@ dist
 user-context.json
 mastra.duckdb*
 src/mastra/public/.data/contexts
+generated/

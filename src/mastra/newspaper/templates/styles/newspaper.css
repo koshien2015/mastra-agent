@@ -1,0 +1,177 @@
+@charset "UTF-8";
+
+@page {
+  size: A4;
+  margin: 14mm 13mm 12mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "ヒラギノ明朝 ProN", serif;
+  font-size: 9pt;
+  line-height: 1.75;
+  color: #111;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── マストヘッド ─── */
+
+.masthead {
+  border-top: 3pt solid #000;
+  border-bottom: 1.5pt solid #000;
+  padding: 3mm 0 2mm;
+  margin-bottom: 4mm;
+  text-align: center;
+}
+
+.paper-name {
+  font-family: "Hiragino Sans", "Noto Sans CJK JP", "ヒラギノ角ゴ ProN", sans-serif;
+  font-size: 22pt;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+}
+
+.paper-meta {
+  font-size: 7.5pt;
+  color: #333;
+  margin-top: 1.5mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.paper-meta .league-tag {
+  background: #000;
+  color: #fff;
+  padding: 0.5mm 2mm;
+  font-size: 7pt;
+}
+
+/* ─── トップ記事 ─── */
+
+.top-story {
+  margin-bottom: 4mm;
+}
+
+.headline-1 {
+  font-family: "Hiragino Sans", "Noto Sans CJK JP", sans-serif;
+  font-size: 19pt;
+  font-weight: 900;
+  line-height: 1.2;
+  margin: 0 0 3mm;
+  letter-spacing: 0.05em;
+}
+
+.lead {
+  font-size: 10pt;
+  line-height: 1.85;
+}
+
+.lead p {
+  margin: 0 0 2mm;
+}
+
+/* ─── 区切り ─── */
+
+.rule-thick {
+  border: none;
+  border-top: 2pt solid #000;
+  margin: 4mm 0;
+}
+
+.rule-thin {
+  border: none;
+  border-top: 0.5pt solid #aaa;
+  margin: 3mm 0;
+}
+
+/* ─── セクションタイトル ─── */
+
+.section-title {
+  font-family: "Hiragino Sans", "Noto Sans CJK JP", sans-serif;
+  font-size: 10.5pt;
+  font-weight: 700;
+  border-left: 3.5pt solid #000;
+  padding-left: 2.5mm;
+  margin: 0 0 2.5mm;
+  break-after: avoid;
+}
+
+/* ─── ハイライト＋キープレーヤー 2段組 ─── */
+
+.columns-2 {
+  column-count: 2;
+  column-gap: 6mm;
+  column-rule: 0.5pt solid #bbb;
+  orphans: 2;
+  widows: 2;
+}
+
+.highlights p {
+  text-indent: 1em;
+  margin: 0 0 2mm;
+}
+
+/* ─── キープレーヤー（グレーボックス） ─── */
+
+.key-players-box {
+  background: #f5f5f5;
+  border-left: 3pt solid #555;
+  padding: 2mm 3mm;
+  break-inside: avoid;
+}
+
+.key-players-box p {
+  margin: 0 0 1.5mm;
+}
+
+/* ─── その他の注目試合 3段組 ─── */
+
+.other-news-grid {
+  column-count: 3;
+  column-gap: 5mm;
+  column-rule: 0.5pt solid #bbb;
+}
+
+.other-news-grid ul {
+  margin: 0;
+  padding-left: 3mm;
+  list-style-type: "▶ ";
+}
+
+.other-news-grid li {
+  margin-bottom: 1.5mm;
+  break-inside: avoid;
+}
+
+/* ─── 総括 ─── */
+
+.summary {
+  border-top: 0.5pt solid #000;
+  padding-top: 3mm;
+  margin-top: 3mm;
+}
+
+.summary p {
+  text-indent: 1em;
+  margin: 0 0 2mm;
+}
+
+/* ─── フッター ─── */
+
+.newspaper-footer {
+  position: running(footer);
+  font-size: 7pt;
+  color: #666;
+  text-align: center;
+}
+
+@page {
+  @bottom-center {
+    content: element(footer);
+  }
+}
