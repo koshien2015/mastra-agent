@@ -2,10 +2,9 @@ import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { renderNewspaper } from '../newspaper/render';
 
-const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const PROJECT_ROOT = process.cwd();
 
 const SCORESHEET_URL = process.env.SCORESHEET_API_URL ?? 'http://localhost:3333';
 

@@ -1,9 +1,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { fileURLToPath } from 'url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const TEMPLATES_DIR = path.join(__dirname, 'templates')
+const TEMPLATES_DIR = path.join(process.cwd(), 'src', 'mastra', 'newspaper', 'templates')
 
 export interface ArticleData {
   leagueName: string
