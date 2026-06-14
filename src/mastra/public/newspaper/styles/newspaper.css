@@ -29,6 +29,7 @@ body {
 
 .content {
   writing-mode: vertical-rl;
+  text-orientation: upright;
   flex: 1;
   overflow: hidden;
 }
