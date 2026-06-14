@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { renderNewspaper } from '../newspaper/render';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -159,6 +160,7 @@ const generateNewsStep = createStep({
     article: z.string(),
     filePath: z.string(),
     leagueArticles: z.array(leagueArticleSchema),
+    tempDir: z.string(),
   }),
   execute: async ({ inputData, mastra }) => {
     const summaries = inputData.filter(s => s.summary !== '（試合データなし）');
@@ -222,7 +224,44 @@ const generateNewsStep = createStep({
 
     await fs.writeFile(newsPath, combinedArticle);
 
-    return { article: combinedArticle, filePath: newsPath, leagueArticles };
+    return { article: combinedArticle, filePath: newsPath, leagueArticles, tempDir };
+  },
+});
+
+// ---- Step 4: HTML紙面を生成 ----
+
+const renderNewspaperStep = createStep({
+  id: 'render-newspaper',
+  description: 'リーグ別ニュース記事からHTML紙面を生成',
+  inputSchema: z.object({
+    article: z.string(),
+    filePath: z.string(),
+    leagueArticles: z.array(leagueArticleSchema),
+    tempDir: z.string(),
+  }),
+  outputSchema: z.object({
+    htmlPaths: z.array(z.string()),
+  }),
+  execute: async ({ inputData }) => {
+    const { leagueArticles, tempDir } = inputData;
+    const publishDate = path.basename(tempDir);
+    const htmlDir = path.join(tempDir, 'html');
+
+    const htmlPaths: string[] = [];
+    for (const league of leagueArticles) {
+      const { htmlPath } = await renderNewspaper(
+        {
+          leagueName: league.leagueName,
+          publishDate,
+          gameCount: league.gameCount,
+          article: league.article,
+        },
+        htmlDir
+      );
+      htmlPaths.push(htmlPath);
+    }
+
+    return { htmlPaths };
   },
 });
 
@@ -236,13 +275,12 @@ export const weeklyNewsWorkflow = createWorkflow({
     outputDir: z.string().optional().describe('出力先ディレクトリ（省略時は /tmp）'),
   }),
   outputSchema: z.object({
-    article: z.string(),
-    filePath: z.string(),
-    leagueArticles: z.array(leagueArticleSchema),
+    htmlPaths: z.array(z.string()),
   }),
 })
   .then(fetchGamesStep)
   .foreach(summarizeGameStep, { concurrency: 3 })
-  .then(generateNewsStep);
+  .then(generateNewsStep)
+  .then(renderNewspaperStep);
 
 weeklyNewsWorkflow.commit();
