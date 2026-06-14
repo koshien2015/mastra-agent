@@ -75,14 +75,18 @@ export async function renderNewspaper(
   data: ArticleData,
   outputDir: string
 ): Promise<RenderResult> {
-  const template = await fs.readFile(
-    path.join(TEMPLATES_DIR, 'front-page.html'),
-    'utf-8'
-  )
+  const [template, css] = await Promise.all([
+    fs.readFile(path.join(TEMPLATES_DIR, 'front-page.html'), 'utf-8'),
+    fs.readFile(path.join(TEMPLATES_DIR, 'styles', 'newspaper.css'), 'utf-8'),
+  ])
 
   const { headline, lead, sections } = parseArticle(data.article)
 
   const html = template
+    .replace(
+      '<link rel="stylesheet" href="styles/newspaper.css">',
+      `<style>\n${css}\n</style>`
+    )
     .replaceAll('{{PAPER_NAME}}', 'CAP BASEBALL WEEKLY')
     .replaceAll('{{PUBLISH_DATE}}', data.publishDate)
     .replaceAll('{{LEAGUE_NAME}}', data.leagueName)
