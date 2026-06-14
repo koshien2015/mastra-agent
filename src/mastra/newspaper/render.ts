@@ -92,6 +92,7 @@ export async function renderNewspaper(
     .replaceAll('{{LEAGUE_NAME}}', data.leagueName)
     .replaceAll('{{GAME_COUNT}}', String(data.gameCount))
     .replace('{{HEADLINE}}', headline)
+    .replace('{{PHOTO_CAPTION}}', '')
     .replace('{{LEAD}}', markdownToHtml(lead))
     .replace('{{HIGHLIGHTS}}', markdownToHtml(sections['今週のハイライト'] ?? ''))
     .replace('{{KEY_PLAYERS}}', markdownToHtml(sections['今週のキープレーヤー'] ?? ''))
